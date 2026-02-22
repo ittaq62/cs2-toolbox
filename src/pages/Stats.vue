@@ -139,23 +139,22 @@ const globalStats = computed(() => {
   const totalOpened = filtered.reduce((s, d) => s + d.total, 0)
   const caseCount = filtered.length
 
-  // Weighted average by number of openings
+  // Weighted average: each rarity's global % = total "virtual drops" / total openings
+  // virtual drops for rarity R in collection C = R.percent * C.total / 100
   const rarityTotals = {}
   filtered.forEach(d => {
-    const weight = d.total
     d.rarities.forEach(r => {
       const key = r.name.toLowerCase()
       if (!rarityTotals[key]) {
-        rarityTotals[key] = { name: r.name, weightedPct: 0, totalWeight: 0, color: r.color }
+        rarityTotals[key] = { name: r.name, virtualDrops: 0, color: r.color }
       }
-      rarityTotals[key].weightedPct += r.percent * weight
-      rarityTotals[key].totalWeight += weight
+      rarityTotals[key].virtualDrops += (r.percent / 100) * d.total
     })
   })
 
   const rarities = Object.values(rarityTotals).map(r => ({
     name: r.name,
-    percent: Math.round((r.weightedPct / r.totalWeight) * 100) / 100,
+    percent: Math.round((r.virtualDrops / totalOpened) * 10000) / 100,
     color: r.color,
   }))
 
