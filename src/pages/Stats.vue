@@ -6,9 +6,16 @@ const sheetsData = ref({})
 const selectedId = ref(null)
 const loading = ref(true)
 const loadingSheet = ref(false)
+const loadingPrices = ref(false)
+const priceError = ref(null)
+const priceDebug = ref({ resolved: 0, fetched: 0, succeeded: 0, failed: 0, errors: [] })
 const activeTab = ref('case')
 
 const progress = ref({ loaded: 0, total: 0, failed: 0 })
+
+// Prix récupérés : { marketHashName: { price, currency } }
+const prices = ref({})
+const KEY_PRICE = 2.19 // EUR, prix in-game
 
 // Filtre global
 const filterOpen = ref(false)
@@ -31,11 +38,8 @@ const terminalCollections = ['genèse', 'genese']
 
 function categorizeSheet(name) {
   const l = name.toLowerCase()
-
-  // Check special cases first
   if (specialCases.some(s => l.includes(s))) return 'case'
   if (terminalCollections.some(s => l.includes(s))) return 'terminal'
-
   if (l.includes('souvenir')) return 'souvenir'
   if (l.includes('case') || l.includes('caisse')) return 'case'
   if (l.includes('sticker') || l.includes('capsule') || l.includes('sugarface')) return 'sticker'
@@ -43,12 +47,170 @@ function categorizeSheet(name) {
   return 'collection'
 }
 
+/** Convertit un nom de sheet (souvent FR) en market_hash_name Steam (EN) */
+function toMarketHashName(sheetName) {
+  const l = sheetName.toLowerCase().trim()
+
+  // Dictionnaire FR → EN (exact match sur lowercase)
+  const map = {
+    // === CAISSES ===
+    'caisse de fièvre':                      'Fever Case',
+    'caisse fièvre':                         'Fever Case',
+    'fever':                                 'Fever Case',
+
+    "caisse d'armes envenimée ( snakebite )": 'Snakebite Case',
+    "caisse d'armes envenimée (snakebite)":   'Snakebite Case',
+    'caisse morsure':                         'Snakebite Case',
+    'snakebite':                              'Snakebite Case',
+
+    "caisse de l'opération riptide":          'Operation Riptide Case',
+    'caisse opération riptide':               'Operation Riptide Case',
+    'operation riptide':                      'Operation Riptide Case',
+
+    'caisse prisma':                          'Prisma Case',
+    'caisse prisma 2':                        'Prisma 2 Case',
+
+    'caisse spectrale':                       'Spectrum Case',
+    'caisse spectrale n°2':                   'Spectrum 2 Case',
+    "caisse spectrale n'2":                   'Spectrum 2 Case',
+    'caisse spectre':                         'Spectrum Case',
+    'caisse spectre 2':                       'Spectrum 2 Case',
+
+    'caisse winter offensive':                'Winter Offensive Weapon Case',
+    'caisse offensive hivernale':             'Winter Offensive Weapon Case',
+
+    'caisse kilowatt':                        'Kilowatt Case',
+    'kilowatt':                               'Kilowatt Case',
+    'caisse revolution':                      'Revolution Case',
+    'caisse révolution':                      'Revolution Case',
+    'revolution':                             'Revolution Case',
+    'caisse recul':                           'Recoil Case',
+    'recoil':                                 'Recoil Case',
+    'caisse fracture':                        'Fracture Case',
+    'fracture':                               'Fracture Case',
+
+    'caisse rêves et cauchemars':             'Dreams & Nightmares Case',
+    'rêves et cauchemars':                    'Dreams & Nightmares Case',
+    'dreams & nightmares':                    'Dreams & Nightmares Case',
+
+    'caisse galerie':                         'Gallery Case',
+    'gallery':                                'Gallery Case',
+
+    'caisse chroma':                          'Chroma Case',
+    'caisse chroma 2':                        'Chroma 2 Case',
+    'caisse chroma 3':                        'Chroma 3 Case',
+
+    'caisse gamma':                           'Gamma Case',
+    'caisse gamma 2':                         'Gamma 2 Case',
+
+    "caisse de l'opération breakout":         'Operation Breakout Weapon Case',
+    'caisse opération breakout':              'Operation Breakout Weapon Case',
+    "caisse de l'opération bravo":            'Operation Bravo Case',
+    'caisse opération bravo':                 'Operation Bravo Case',
+    "caisse de l'opération phoenix":          'Operation Phoenix Weapon Case',
+    'caisse opération phoenix':               'Operation Phoenix Weapon Case',
+    "caisse de l'opération vanguard":         'Operation Vanguard Weapon Case',
+    'caisse opération vanguard':              'Operation Vanguard Weapon Case',
+    "caisse de l'opération wildfire":         'Operation Wildfire Case',
+    'caisse opération wildfire':              'Operation Wildfire Case',
+    "caisse de l'opération hydra":            'Operation Hydra Case',
+    'caisse opération hydra':                 'Operation Hydra Case',
+    'caisse toile brisée':                    'Shattered Web Case',
+    "caisse de l'opération broken fang":      'Operation Broken Fang Case',
+    'caisse opération broken fang':           'Operation Broken Fang Case',
+    'broken fang':                            'Operation Broken Fang Case',
+
+    'caisse clutch':                          'Clutch Case',
+    'clutch':                                 'Clutch Case',
+    'caisse zone de danger':                  'Danger Zone Case',
+    'zone de danger':                         'Danger Zone Case',
+    'caisse horizon':                         'Horizon Case',
+    'caisse ombre':                           'Shadow Case',
+    'caisse gant':                            'Glove Case',
+    'caisse revolver':                        'Revolver Case',
+    'caisse falchion':                        'Falchion Case',
+    'caisse huntsman':                        'Huntsman Weapon Case',
+    'caisse cs20':                            'CS20 Case',
+    'cs20':                                   'CS20 Case',
+
+    "caisse d'armes cs:go":                   'CS:GO Weapon Case',
+    "caisse d'armes cs:go 2":                 'CS:GO Weapon Case 2',
+    "caisse d'armes cs:go 3":                 'CS:GO Weapon Case 3',
+
+    'caisse esports 2013':                    'eSports 2013 Case',
+    'caisse esports 2013 hiver':              'eSports 2013 Winter Case',
+    'caisse esports 2014 été':                'eSports 2014 Summer Case',
+
+    // Saturation = Chroma (FR)
+    'saturation n°3':                         'Chroma 3 Case',
+    'saturation':                             'Chroma Case',
+
+    // === CAPSULES STICKERS ===
+    'capsule stickers de la communauté de 2025':  '2025 Community Sticker Capsule',
+    'capsule stickers communauté 2025':            '2025 Community Sticker Capsule',
+    'collection capsule à stickers cs20':          'CS20 Sticker Capsule',
+    'capsule à stickers cs20':                     'CS20 Sticker Capsule',
+    'sugarface 2':                                 'Sugarface 2 Capsule',
+
+    // === TERMINAL ===
+    'collection genèse':                      'Sealed Genesis Terminal',
+    'collection genese':                      'Sealed Genesis Terminal',
+    'terminal genèse scellé':                 'Sealed Genesis Terminal',
+    'sealed genesis terminal':                'Sealed Genesis Terminal',
+  }
+
+  // 1. Exact match
+  if (l in map) return map[l]
+
+  // 2. Nettoyage parenthèses FR : "Recoil Case (Recul du Serpent)" → "Recoil Case"
+  const withoutParens = sheetName.replace(/\s*\([^)]*\)\s*/g, '').trim()
+  const lClean = withoutParens.toLowerCase().trim()
+  if (lClean in map) return map[lClean]
+
+  // 3. Souvenir packages → déjà en anglais
+  if (l.includes('souvenir package')) return sheetName.trim()
+
+  // 4. Si contient déjà "Case" en anglais
+  if (/\bcase\b/i.test(withoutParens)) return withoutParens
+
+  // 5. Transformation auto "Caisse X" → "X Case"
+  const caisseMatch = withoutParens.match(/^caisse\s+(.+)$/i)
+  if (caisseMatch) return caisseMatch[1].trim() + ' Case'
+
+  // 6. Fallback
+  return sheetName.trim()
+}
+
+/** Collections/items gratuits (drops, armurerie) — pas de prix sur le Steam Market */
+function isFreeCollection(sheetName) {
+  const l = sheetName.toLowerCase()
+
+  // Collections armurerie (drops en jeu gratuits)
+  if (l.startsWith('collection ') && !l.includes('capsule') && !l.includes('genèse') && !l.includes('genese')) {
+    return true
+  }
+
+  // Stickers Armory (Création de Personnages, Maîtrise des Elements) → gratuits via pass
+  if (l.startsWith('stickers ')) return true
+
+  // Porte-bonheurs (charms) → drops gratuits
+  if (l.startsWith('porte-bonheurs') || l.startsWith('porte-bonheur')) return true
+
+  return false
+}
+
+/** Est-ce que cette collection nécessite une clé ? */
+function collectionNeedsKey(name) {
+  const type = categorizeSheet(name)
+  // Caisses classiques = clé requise. Souvenirs, stickers, collections, terminal = non.
+  return type === 'case'
+}
+
 function toggleType(type) {
   if (type === 'all') {
     selectedTypes.value = ['all']
     return
   }
-  // Remove 'all' if selecting specific type
   const idx = selectedTypes.value.indexOf('all')
   if (idx !== -1) selectedTypes.value.splice(idx, 1)
 
@@ -65,7 +227,6 @@ function isTypeSelected(type) {
   return selectedTypes.value.includes(type)
 }
 
-// Available types based on actual sheets
 const availableTypes = computed(() => {
   const types = new Set()
   sheets.value.forEach(s => types.add(categorizeSheet(s.name)))
@@ -108,6 +269,34 @@ function getOfficialRate(rarityName, sheetName) {
   return officialCaseRates[key] ?? null
 }
 
+// --- Prix par collection ---
+function getCollectionPrice(sheetName) {
+  if (isFreeCollection(sheetName)) return { price: 0, currency: '€', free: true }
+  const mhn = toMarketHashName(sheetName)
+  if (!mhn) return null // pas de market hash name connu → prix indisponible
+  return prices.value[mhn] ?? null
+}
+
+function getCollectionUnitCost(sheetName) {
+  const p = getCollectionPrice(sheetName)
+  if (!p) return null
+  if (p.free) return { itemPrice: 0, keyPrice: 0, total: 0, free: true }
+  if (p.price == null) return null
+  const itemPrice = p.price
+  const keyPrice = collectionNeedsKey(sheetName) ? KEY_PRICE : 0
+  return { itemPrice, keyPrice, total: Math.round((itemPrice + keyPrice) * 100) / 100, free: false }
+}
+
+function getCollectionTotalCost(sheetName, sheetId) {
+  const unit = getCollectionUnitCost(sheetName)
+  if (!unit) return null
+  if (unit.free) return 0
+  const data = sheetsData.value[sheetId]
+  const opens = data?.total || 0
+  return Math.round(unit.total * opens * 100) / 100
+}
+
+// --- Stats globales avec prix ---
 const selectedData = computed(() => {
   if (!selectedId.value) return null
   return sheetsData.value[selectedId.value] || null
@@ -121,7 +310,6 @@ const allLoaded = computed(() => {
   return progress.value.loaded >= progress.value.total && progress.value.total > 0
 })
 
-// Filtered sheets for global tab
 const filteredSheets = computed(() => {
   if (selectedTypes.value.includes('all')) return sheets.value
   return sheets.value.filter(s => selectedTypes.value.includes(categorizeSheet(s.name)))
@@ -131,24 +319,43 @@ const globalStats = computed(() => {
   if (!allLoaded.value) return null
 
   const filtered = filteredSheets.value
-    .map(s => sheetsData.value[s.id])
-    .filter(d => d && d.total > 0)
+    .map(s => ({ sheet: s, data: sheetsData.value[s.id] }))
+    .filter(({ data }) => data && data.total > 0)
 
   if (!filtered.length) return null
 
-  const totalOpened = filtered.reduce((s, d) => s + d.total, 0)
+  const totalOpened = filtered.reduce((s, { data }) => s + data.total, 0)
   const caseCount = filtered.length
 
-  // Weighted average: each rarity's global % = total "virtual drops" / total openings
-  // virtual drops for rarity R in collection C = R.percent * C.total / 100
+  // Prix global — exclure les gratuits et ceux sans prix
+  let totalCost = 0
+  let pricedOpens = 0  // nb d'ouvertures qui ont un coût réel
+  let pricedCount = 0  // nb de collections avec prix
+
+  filtered.forEach(({ sheet, data }) => {
+    if (isFreeCollection(sheet.name)) return // skip gratuits
+    const unit = getCollectionUnitCost(sheet.name)
+    if (!unit || unit.free) return           // skip sans prix ou gratuit
+    if (unit.total <= 0) return              // skip coût 0
+    const cost = unit.total * data.total
+    totalCost += cost
+    pricedOpens += data.total
+    pricedCount++
+  })
+
+  const avgCostPerOpen = pricedOpens > 0
+    ? Math.round(totalCost / pricedOpens * 100) / 100
+    : null
+
+  // Weighted average rarities
   const rarityTotals = {}
-  filtered.forEach(d => {
-    d.rarities.forEach(r => {
+  filtered.forEach(({ data }) => {
+    data.rarities.forEach(r => {
       const key = r.name.toLowerCase()
       if (!rarityTotals[key]) {
         rarityTotals[key] = { name: r.name, virtualDrops: 0, color: r.color }
       }
-      rarityTotals[key].virtualDrops += (r.percent / 100) * d.total
+      rarityTotals[key].virtualDrops += (r.percent / 100) * data.total
     })
   })
 
@@ -157,12 +364,15 @@ const globalStats = computed(() => {
     percent: Math.round((r.virtualDrops / totalOpened) * 10000) / 100,
     color: r.color,
   }))
-
-  // Sort by percent desc
   rarities.sort((a, b) => b.percent - a.percent)
 
-  return { totalOpened, caseCount, rarities }
+  return { totalOpened, caseCount, rarities, totalCost: Math.round(totalCost * 100) / 100, avgCostPerOpen, pricedCount }
 })
+
+function fmt(val) {
+  if (val == null) return '—'
+  return val.toFixed(2) + '€'
+}
 
 async function fetchSheetsList() {
   try {
@@ -190,6 +400,69 @@ async function fetchSheet(id) {
   return false
 }
 
+async function fetchPrices() {
+  if (sheets.value.length === 0) return
+  loadingPrices.value = true
+  priceError.value = null
+  priceDebug.value = { resolved: 0, fetched: 0, succeeded: 0, failed: 0, errors: [], progress: '' }
+
+  try {
+    // Résoudre les noms (exclure gratuits et null)
+    const namesSet = new Set()
+    sheets.value.forEach(s => {
+      if (isFreeCollection(s.name)) return
+      const mhn = toMarketHashName(s.name)
+      if (mhn) namesSet.add(mhn)
+    })
+    const allNames = Array.from(namesSet)
+    priceDebug.value.resolved = allNames.length
+
+    if (!allNames.length) { loadingPrices.value = false; return }
+
+    // Petits batchs de 5 — chaque requête PHP prend ~15s max
+    // Les prix apparaissent progressivement au fur et à mesure
+    const BATCH = 5
+    const total = Math.ceil(allNames.length / BATCH)
+
+    for (let i = 0; i < allNames.length; i += BATCH) {
+      const batch = allNames.slice(i, i + BATCH)
+      const num = Math.floor(i / BATCH) + 1
+      priceDebug.value.progress = `${num}/${total}`
+
+      try {
+        const r = await fetch(`/api/get_prices.php?names=${encodeURIComponent(batch.join(','))}`)
+        if (r.ok) {
+          const data = await r.json()
+          if (data && typeof data === 'object' && !data.error) {
+            prices.value = { ...prices.value, ...data }
+            priceDebug.value.succeeded++
+          }
+        } else {
+          priceDebug.value.failed++
+        }
+      } catch (e) {
+        priceDebug.value.failed++
+        priceDebug.value.errors.push(e.message)
+      }
+
+      // Petit délai entre batchs (les requêtes prennent déjà ~15s chacune)
+      if (i + BATCH < allNames.length) {
+        await new Promise(r => setTimeout(r, 500))
+      }
+    }
+  } catch (e) {
+    priceError.value = e.message
+  } finally {
+    loadingPrices.value = false
+  }
+}
+
+async function retryPrices() {
+  prices.value = {}
+  try { await fetch('/api/get_prices.php?clear_cache=1') } catch(e) {}
+  await fetchPrices()
+}
+
 const sleep = ms => new Promise(r => setTimeout(r, ms))
 
 async function fetchAllSheets() {
@@ -199,6 +472,9 @@ async function fetchAllSheets() {
   progress.value.total = ids.length
   progress.value.loaded = 0
   progress.value.failed = 0
+
+  // Fetch prices en parallèle
+  fetchPrices()
 
   const failed = []
 
@@ -309,6 +585,41 @@ onMounted(fetchAllSheets)
               <span class="badge">{{ selectedData.total }} ouvertures</span>
             </div>
 
+            <!-- Carte de coût par collection -->
+            <div class="box detail-section cost-section">
+              <h3>Coût estimé</h3>
+              <div v-if="isFreeCollection(selectedName)" class="cost-free">
+                <span class="cost-free__icon">🎁</span>
+                <span class="cost-free__text">Collection gratuite (drops en jeu)</span>
+              </div>
+              <div v-else-if="getCollectionUnitCost(selectedName)" class="cost-grid">
+                <div class="cost-item">
+                  <span class="cost-item__label">
+                    {{ categorizeSheet(selectedName) === 'case' ? '📦 Caisse' : categorizeSheet(selectedName) === 'souvenir' ? '🎁 Package' : '🏷️ Capsule' }}
+                  </span>
+                  <span class="cost-item__value">{{ fmt(getCollectionUnitCost(selectedName).itemPrice) }}</span>
+                </div>
+                <div v-if="collectionNeedsKey(selectedName)" class="cost-item cost-item--key">
+                  <span class="cost-item__label">🔑 Clé</span>
+                  <span class="cost-item__value">{{ fmt(KEY_PRICE) }}</span>
+                </div>
+                <div class="cost-item cost-item--unit">
+                  <span class="cost-item__label">Coût / ouverture</span>
+                  <span class="cost-item__value cost-item__value--accent">{{ fmt(getCollectionUnitCost(selectedName).total) }}</span>
+                </div>
+                <div class="cost-item cost-item--total">
+                  <span class="cost-item__label">Total (× {{ selectedData.total }})</span>
+                  <span class="cost-item__value cost-item__value--big">{{ fmt(getCollectionTotalCost(selectedName, selectedId)) }}</span>
+                </div>
+              </div>
+              <div v-else-if="loadingPrices" class="cost-placeholder">
+                <i class="fas fa-spinner fa-spin"></i> Chargement des prix…
+              </div>
+              <div v-else class="cost-placeholder">
+                Prix indisponible{{ toMarketHashName(selectedName) ? ` pour « ${toMarketHashName(selectedName)} »` : ' (pas sur le Steam Market)' }}
+              </div>
+            </div>
+
             <!-- Raretés -->
             <div class="box detail-section">
               <h3>Répartition par rareté</h3>
@@ -402,6 +713,35 @@ onMounted(fetchAllSheets)
             <div class="stat-value">{{ globalStats.caseCount }}</div>
             <div class="stat-label">Collections avec drops</div>
           </div>
+          <div class="box stat-card" v-if="globalStats.totalCost > 0">
+            <div class="stat-value stat-value--money">{{ fmt(globalStats.totalCost) }}</div>
+            <div class="stat-label">Total dépensé</div>
+          </div>
+          <div class="box stat-card" v-if="globalStats.avgCostPerOpen">
+            <div class="stat-value stat-value--money">{{ fmt(globalStats.avgCostPerOpen) }}</div>
+            <div class="stat-label">Coût moyen / ouverture</div>
+          </div>
+        </div>
+
+        <!-- Chargement prix -->
+        <div v-if="loadingPrices" class="price-loading-bar">
+          <i class="fas fa-coins fa-spin"></i>
+          Chargement des prix Steam… batch {{ priceDebug.progress || '...' }}
+          <span class="price-loaded-count" v-if="Object.keys(prices).length > 0">
+            — {{ Object.values(prices).filter(v => v?.price != null).length }} prix chargés
+          </span>
+          <div class="price-note">Premier chargement ~2-3 min, ensuite caché 1h</div>
+        </div>
+
+        <!-- Erreur prix -->
+        <div v-if="!loadingPrices && priceDebug.failed > 0" class="price-error-bar">
+          <div class="price-error-bar__text">
+            <i class="fas fa-exclamation-triangle"></i>
+            {{ priceDebug.failed }} batch(s) échoué(s) — certains prix manquent
+          </div>
+          <button class="retry-btn" @click="retryPrices">
+            <i class="fas fa-redo"></i> Recharger
+          </button>
         </div>
 
         <div class="box detail-section">
@@ -418,20 +758,46 @@ onMounted(fetchAllSheets)
         </div>
 
         <div class="box detail-section">
-          <h3>Récapitulatif</h3>
+          <h3>Récapitulatif par collection</h3>
           <table class="drops-table">
             <thead>
               <tr>
                 <th class="col-name">Collection</th>
                 <th class="col-num">Ouvertures</th>
+                <th class="col-num">Coût unit.</th>
+                <th class="col-num">Total</th>
               </tr>
             </thead>
             <tbody>
-              <tr v-for="s in filteredSheets" :key="s.id" class="clickable" @click="selectSheet(s.id)">
-                <td class="col-name">{{ s.name }}</td>
+              <tr
+                v-for="s in filteredSheets" :key="s.id"
+                class="clickable"
+                @click="selectSheet(s.id)"
+              >
+                <td class="col-name">
+                  {{ s.name }}
+                  <span v-if="collectionNeedsKey(s.name)" class="key-icon-mini" title="Clé requise">🔑</span>
+                  <span v-if="isFreeCollection(s.name)" class="free-badge-mini">Gratuit</span>
+                </td>
                 <td class="col-num">{{ sheetsData[s.id]?.total || 0 }}</td>
+                <td class="col-num">
+                  <template v-if="isFreeCollection(s.name)">Gratuit</template>
+                  <template v-else>{{ fmt(getCollectionUnitCost(s.name)?.total) }}</template>
+                </td>
+                <td class="col-num">
+                  <template v-if="isFreeCollection(s.name)">Gratuit</template>
+                  <template v-else>{{ fmt(getCollectionTotalCost(s.name, s.id)) }}</template>
+                </td>
               </tr>
             </tbody>
+            <tfoot v-if="globalStats.totalCost > 0">
+              <tr class="total-row">
+                <td class="col-name"><strong>Total</strong></td>
+                <td class="col-num"><strong>{{ globalStats.totalOpened }}</strong></td>
+                <td class="col-num"></td>
+                <td class="col-num"><strong class="total-price">{{ fmt(globalStats.totalCost) }}</strong></td>
+              </tr>
+            </tfoot>
           </table>
         </div>
       </template>

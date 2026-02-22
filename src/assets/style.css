@@ -220,6 +220,96 @@ canvas{
   100%{ transform:translateY(-8px); }
 }
 
+/* ========== Prix / Winner Card ========== */
+.price-loading{
+  font-size:13px; color:#888;
+  display:flex; align-items:center; gap:6px;
+  animation: pulseFade 1.5s ease-in-out infinite;
+}
+@keyframes pulseFade{
+  0%, 100%{ opacity:.5; }
+  50%{ opacity:1; }
+}
+
+.winner-price-card{
+  background: var(--panel-3);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px;
+  width: 100%;
+  max-width: 380px;
+  animation: cardSlideIn .35s cubic-bezier(.17,.67,.29,1.2) forwards;
+}
+@keyframes cardSlideIn{
+  0%{ opacity:0; transform:translateY(12px) scale(.95); }
+  100%{ opacity:1; transform:translateY(0) scale(1); }
+}
+
+.winner-price-card__header{
+  display:flex; align-items:center; gap:12px;
+  margin-bottom:12px;
+}
+.winner-price-card__img{
+  width:64px; height:64px;
+  object-fit:contain;
+  border-radius:8px;
+  background:rgba(255,255,255,.04);
+  padding:4px;
+}
+.winner-price-card__info{
+  display:flex; flex-direction:column; gap:4px;
+  min-width:0; flex:1;
+}
+.winner-price-card__name{
+  font-weight:700; font-size:15px;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
+.winner-price-card__type{
+  font-size:13px; color:#888;
+  display:flex; align-items:center; gap:8px;
+}
+.needs-key-badge{
+  background: rgba(255,215,0,.15);
+  color: #ffd700;
+  font-size:11px; font-weight:700;
+  padding:2px 8px; border-radius:10px;
+  text-transform:uppercase; letter-spacing:.5px;
+}
+
+.winner-price-card__prices{
+  display:flex; flex-direction:column; gap:6px;
+}
+.price-row{
+  display:flex; justify-content:space-between; align-items:center;
+  padding:6px 10px;
+  border-radius:6px;
+  background:rgba(255,255,255,.03);
+}
+.price-row--key{
+  background:rgba(255,215,0,.06);
+}
+.price-row--total{
+  background:rgba(255,77,142,.08);
+  border-top:1px solid var(--border);
+  margin-top:2px;
+  padding-top:8px;
+}
+.price-label{
+  font-size:14px; color:#aaa;
+}
+.price-value{
+  font-size:14px; font-weight:600; color:#fff;
+  font-variant-numeric:tabular-nums;
+}
+.price-value--total{
+  font-size:16px; color:var(--accent);
+}
+
+.winner-price-card__no-price{
+  text-align:center; color:#555; font-size:13px;
+  padding:8px 0; font-style:italic;
+}
+
 /* ========== Settings page ========== */
 .settings-page p { color: #aaa; }
 
@@ -460,3 +550,132 @@ canvas{
 .filter-chip.active{
   background:var(--accent); border-color:var(--accent); color:#fff;
 }
+
+/* ========== Stats prices ========== */
+.cost-section h3{ margin-bottom:14px; }
+
+.cost-grid{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:8px;
+}
+.cost-item{
+  display:flex; justify-content:space-between; align-items:center;
+  padding:10px 14px;
+  border-radius:8px;
+  background:rgba(255,255,255,.03);
+}
+.cost-item--key{
+  background:rgba(255,215,0,.06);
+}
+.cost-item--unit{
+  background:rgba(73,201,179,.08);
+  border:1px solid rgba(73,201,179,.15);
+}
+.cost-item--total{
+  background:rgba(255,77,142,.08);
+  border:1px solid rgba(255,77,142,.15);
+}
+.cost-item__label{
+  font-size:13px; color:#aaa;
+}
+.cost-item__value{
+  font-size:14px; font-weight:600; color:#fff;
+  font-variant-numeric:tabular-nums;
+}
+.cost-item__value--accent{
+  color:#49C9B3; font-size:15px;
+}
+.cost-item__value--big{
+  color:var(--accent); font-size:18px; font-weight:800;
+}
+
+.cost-placeholder{
+  text-align:center; color:#555; font-size:13px;
+  padding:16px 0; font-style:italic;
+}
+
+/* Stats money cards */
+.stat-value--money{
+  color:#49C9B3 !important;
+}
+
+/* Price loading bar */
+.price-loading-bar{
+  text-align:center; padding:12px 16px;
+  background:rgba(73,201,179,.08);
+  border:1px solid rgba(73,201,179,.15);
+  border-radius:8px;
+  color:#49C9B3; font-size:13px;
+  margin-bottom:12px;
+}
+.price-loaded-count{ font-weight:700; }
+.price-note{
+  font-size:11px; color:#777; margin-top:4px;
+  font-style:italic;
+}
+
+/* Price error bar */
+.price-error-bar{
+  display:flex; align-items:center; justify-content:space-between;
+  padding:10px 16px;
+  background:rgba(255,77,77,.08);
+  border:1px solid rgba(255,77,77,.2);
+  border-radius:8px;
+  margin-bottom:12px;
+  flex-wrap:wrap; gap:8px;
+}
+.price-error-bar__text{
+  color:#ff6b6b; font-size:13px;
+  display:flex; align-items:center; gap:8px;
+}
+.price-error-bar__text code{
+  background:rgba(255,255,255,.08);
+  padding:1px 6px; border-radius:4px;
+  font-size:12px; color:#ccc;
+}
+.retry-btn{
+  padding:6px 14px; font-size:12px;
+  border-radius:6px; cursor:pointer;
+  background:rgba(255,77,77,.15); color:#ff6b6b;
+  border:1px solid rgba(255,77,77,.25);
+  transition:all .2s;
+}
+.retry-btn:hover{
+  background:rgba(255,77,77,.25);
+}
+
+/* Key icon in table */
+.key-icon-mini{
+  font-size:11px; margin-left:4px;
+  opacity:.7;
+}
+
+/* Table total row */
+.total-row{
+  border-top:2px solid var(--border);
+}
+.total-row td{
+  padding-top:12px !important;
+}
+.total-price{
+  color:var(--accent); font-size:15px;
+}
+
+/* Free collection */
+.free-badge-mini{
+  font-size:10px; font-weight:700;
+  background:rgba(74,222,128,.15); color:#4ade80;
+  padding:2px 6px; border-radius:8px;
+  margin-left:6px; text-transform:uppercase;
+  letter-spacing:.3px;
+}
+.cost-free{
+  display:flex; align-items:center; gap:10px;
+  padding:16px;
+  background:rgba(74,222,128,.06);
+  border:1px solid rgba(74,222,128,.15);
+  border-radius:8px;
+}
+.cost-free__icon{ font-size:24px; }
+.cost-free__text{ font-size:15px; color:#4ade80; font-weight:600; }
