@@ -4,13 +4,9 @@
 
 header('Content-Type: application/json; charset=utf-8');
 
-// (Si tu appelles SANS le proxy Vite, dé-commente la ligne suivante pour CORS)
-// header('Access-Control-Allow-Origin: *');
-
 $defaultSteamId = '76561199055485964';
 $steamId = isset($_GET['steamid']) && $_GET['steamid'] !== '' ? $_GET['steamid'] : $defaultSteamId;
 
-// App/Context pour CS2
 $appId     = '730';
 $contextId = '2';
 $lang      = 'french';
@@ -18,7 +14,6 @@ $count     = 2000;
 
 $url = "https://steamcommunity.com/inventory/$steamId/$appId/$contextId?l=$lang&count=$count";
 
-// --- Récupération depuis Steam ---
 $ch = curl_init($url);
 curl_setopt_array($ch, [
     CURLOPT_RETURNTRANSFER => true,
@@ -45,7 +40,6 @@ if (!is_array($data)) {
     exit;
 }
 
-// --- Indexer les descriptions par (classid_instanceid) ---
 $descIndex = [];
 if (!empty($data['descriptions']) && is_array($data['descriptions'])) {
     foreach ($data['descriptions'] as $d) {
@@ -57,7 +51,6 @@ if (!empty($data['descriptions']) && is_array($data['descriptions'])) {
     }
 }
 
-// --- Catégoriser un item par son nom ---
 function categorize(string $name): ?string {
     $lower = mb_strtolower($name);
 
@@ -79,8 +72,7 @@ function categorize(string $name): ?string {
     return null; // graffitis, charms, pins, skins, stickers individuels → ignorés
 }
 
-// --- Compter les items par catégorie ---
-$counts = []; // name => ['amount' => int, 'type' => string]
+$counts = [];
 
 if (!empty($data['assets']) && is_array($data['assets'])) {
     foreach ($data['assets'] as $a) {
@@ -107,7 +99,6 @@ if (!empty($data['assets']) && is_array($data['assets'])) {
     }
 }
 
-// --- Sortie JSON ---
 $out = [];
 foreach ($counts as $n => $info) {
     $out[] = [
@@ -117,7 +108,6 @@ foreach ($counts as $n => $info) {
     ];
 }
 
-// Tri décroissant par quantité
 usort($out, fn($x, $y) => $y['amount'] <=> $x['amount']);
 
 echo json_encode($out, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);

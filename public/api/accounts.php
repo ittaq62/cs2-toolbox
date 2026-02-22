@@ -1,13 +1,9 @@
 <?php
 // accounts.php
-// GET  → renvoie la liste des comptes
-// POST → sauvegarde la liste des comptes
-
 header('Content-Type: application/json; charset=utf-8');
 
 $jsonFile = __DIR__ . '/accounts.json';
 
-// Fichier par défaut s'il n'existe pas
 $defaults = [
     ['steamId' => '76561199055485964', 'label' => 'Dublatic'],
     ['steamId' => '76561199652580615', 'label' => 'Livies'],
@@ -34,7 +30,6 @@ if ($method === 'POST') {
         exit;
     }
 
-    // Validation basique : chaque entrée doit avoir steamId et label
     $clean = [];
     foreach ($input as $item) {
         $id    = trim($item['steamId'] ?? '');

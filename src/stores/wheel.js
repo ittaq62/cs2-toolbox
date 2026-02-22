@@ -12,7 +12,6 @@ export const wheelStore = reactive({
   loaded: false,
 })
 
-// Charger les comptes depuis le PHP
 export async function loadAccounts() {
   try {
     const r = await fetch('/api/accounts.php')
@@ -26,7 +25,6 @@ export async function loadAccounts() {
   wheelStore.loaded = true
 }
 
-// Sauvegarder les comptes côté serveur
 async function saveAccounts() {
   try {
     await fetch('/api/accounts.php', {
@@ -39,7 +37,6 @@ async function saveAccounts() {
   }
 }
 
-// Ajouter un compte
 export async function addAccount(steamId, label) {
   if (wheelStore.inventories.some(inv => inv.steamId === steamId)) return false
   wheelStore.inventories.push({ steamId, label })
@@ -47,7 +44,6 @@ export async function addAccount(steamId, label) {
   return true
 }
 
-// Supprimer un compte
 export async function removeAccount(index) {
   wheelStore.inventories.splice(index, 1)
   await saveAccounts()

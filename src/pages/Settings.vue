@@ -35,44 +35,22 @@ async function handleRemove(index) {
     <h2>Paramètres</h2>
     <p style="margin-bottom: 1.5rem">Gère les inventaires Steam utilisés par la roue.</p>
 
-    <!-- Liste existante -->
     <div class="settings-list">
-      <div
-        v-for="(inv, i) in wheelStore.inventories"
-        :key="inv.steamId"
-        class="settings-row"
-      >
+      <div v-for="(inv, i) in wheelStore.inventories" :key="inv.steamId" class="settings-row">
         <span class="settings-label">{{ inv.label }}</span>
         <span class="settings-id">{{ inv.steamId }}</span>
-        <button
-          class="settings-remove"
-          @click="handleRemove(i)"
-          :disabled="saving"
-          title="Supprimer"
-        >
+        <button class="settings-remove" @click="handleRemove(i)" :disabled="saving" title="Supprimer">
           <i class="fas fa-trash-alt"></i>
         </button>
       </div>
-
       <div v-if="!wheelStore.inventories.length" class="settings-empty">
         Aucun inventaire configuré.
       </div>
     </div>
 
-    <!-- Ajout -->
     <div class="settings-add">
-      <input
-        v-model="newLabel"
-        class="settings-input"
-        placeholder="Label (ex: Dublatic)"
-        @keyup.enter="handleAdd"
-      />
-      <input
-        v-model="newSteamId"
-        class="settings-input"
-        placeholder="Steam ID (ex: 76561199055485964)"
-        @keyup.enter="handleAdd"
-      />
+      <input v-model="newLabel" class="settings-input" placeholder="Label (ex: Dublatic)" @keyup.enter="handleAdd" />
+      <input v-model="newSteamId" class="settings-input" placeholder="Steam ID (ex: 76561199055485964)" @keyup.enter="handleAdd" />
       <button class="settings-btn" @click="handleAdd" :disabled="saving">
         <i class="fas fa-plus"></i> Ajouter
       </button>
