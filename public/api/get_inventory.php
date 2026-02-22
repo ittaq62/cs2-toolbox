@@ -61,27 +61,22 @@ if (!empty($data['descriptions']) && is_array($data['descriptions'])) {
 function categorize(string $name): ?string {
     $lower = mb_strtolower($name);
 
-    // Sticker capsules (vérifier en premier car "Sticker Capsule" contient "capsule")
-    if (str_contains($lower, 'sticker')) {
+    // Capsules de stickers / autographes (contient "Capsule")
+    if (str_contains($lower, 'capsule')) {
         return 'sticker';
     }
 
-    // Caisses / Packages Souvenir
-    if (str_contains($lower, 'souvenir')) {
+    // Souvenir Packages uniquement (pas les skins souvenir)
+    if (str_contains($lower, 'souvenir package')) {
         return 'souvenir';
     }
 
-    // Caisses normales (case, caisse, capsule restante ex: "Music Kit Capsule" etc.)
-    if (preg_match('/\b(case|caisse|capsule)\b/', $lower)) {
+    // Caisses classiques uniquement ("Case" ou "Caisse")
+    if (preg_match('/\b(case|caisse)\b/', $lower)) {
         return 'case';
     }
 
-    // Package générique (ex: eSports items, Pin Capsule, etc.)
-    if (str_contains($lower, 'package') || str_contains($lower, 'pin')) {
-        return 'case';
-    }
-
-    return null; // pas un objet qu'on veut
+    return null; // graffitis, charms, pins, skins, stickers individuels → ignorés
 }
 
 // --- Compter les items par catégorie ---
