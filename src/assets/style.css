@@ -1,0 +1,274 @@
+/* ==== FontAwesome pour les icônes dans index.html ==== */
+/* <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"> */
+
+/* ========== Variables & reset ========== */
+:root {
+  --sidebar-w: 220px; /* largeur par défaut */
+  --bg: #101014;
+  --panel: #1a1a26;
+  --panel-2: #16161d;
+  --panel-3: #1f1f2a;
+  --border: #2c2c3b;
+  --accent: #ff4d8e;
+  --text: #ffffff;
+}
+
+* { box-sizing: border-box; }
+html, body, #app { height: 100%; }
+body {
+  margin: 0;
+  font-family: 'Segoe UI', sans-serif;
+  background-color: var(--bg);
+  color: var(--text);
+  overflow: hidden; /* évite les scrollbars horizontales */
+}
+
+/* Quand la layout a la classe .collapsed, on réduit la sidebar */
+.layout { --sidebar-w: 220px; }
+.layout.collapsed { --sidebar-w: 60px; }
+
+/* ========== Sidebar ========== */
+.sidebar {
+  width: var(--sidebar-w);
+  background-color: var(--panel-2);
+  overflow: hidden;
+  height: 100vh;
+  position: fixed; top: 0; left: 0;
+  display: flex; flex-direction: column;
+  transition: width .25s ease;
+  border-right: 1px solid var(--border);
+}
+
+.sidebar-top {
+  height: 64px;
+  display: flex; align-items: center; justify-content: center;
+  background-color: var(--panel-3);
+  border-bottom: 1px solid var(--border);
+}
+.toggle-btn {
+  cursor: pointer; color: var(--text); font-size: 1.2rem;
+  background: none; border: 0; padding: 8px;
+}
+
+.nav {
+  display: flex; flex-direction: column;
+  padding: 0; margin: 0; list-style: none;
+  flex: 1;
+}
+.nav-item {
+  display: flex; align-items: center; gap: 1rem;
+  padding: 1rem;
+  color: var(--text); text-decoration: none;
+  transition: background .2s, transform .2s;
+}
+.nav-item:hover { background-color: #242437; transform: scale(1.02); }
+.nav-item.router-link-active { background-color: #242437; }
+.nav-item .text { white-space: nowrap; transition: opacity .25s; }
+.layout.collapsed .nav-item .text { opacity: 0; pointer-events: none; }
+
+/* ========== Main content ========== */
+/* Astuce clé: on calcule la largeur en fonction de la sidebar */
+.main-content {
+  margin-left: var(--sidebar-w);
+  width: calc(100vw - var(--sidebar-w));
+  height: 100vh;
+  display: flex; flex-direction: column;
+  transition: margin-left .25s ease, width .25s ease;
+}
+
+.topbar {
+  background-color: var(--panel-3);
+  height: 64px;
+  display: flex; align-items: center;
+  padding: 0 2rem;
+  border-bottom: 1px solid var(--border);
+  position: sticky; top: 0;
+  z-index: 10;
+  /* plus de gap à droite, elle s'étend sur toute la largeur calculée */
+}
+
+.content {
+  padding: 1.5rem;
+  overflow-y: auto;
+  height: calc(100vh - 64px);
+}
+
+.box {
+  background-color: var(--panel);
+  border-radius: 10px;
+  padding: 1.5rem;
+  box-shadow: 0 4px 8px rgba(0,0,0,.3);
+}
+
+/* ========== Styles de la roue ========== */
+.wheel-page{
+  display:flex; flex-direction:column; align-items:center; justify-content:flex-start;
+  gap:12px; width:100%;
+}
+
+/* ✅ Responsive : taille adaptée à l'espace réel disponible */
+.wheel-wrapper{
+  position:relative;
+  width:100%; max-width:min(500px, 55vh);
+  aspect-ratio:1;
+  margin: 20px auto 0;  /* 20px en haut pour le pointer */
+}
+
+canvas{
+  width:100%; height:100%;
+  border-radius:50%;
+  background:#162130;
+  box-shadow:
+    0 0 0 4px #203048 inset,
+    0 0 0 10px #293d5a,
+    0 8px 25px rgba(0,0,0,.6);
+}
+
+.pointer{
+  position:absolute; left:50%; top:-18px; transform:translateX(-50%);
+  width:0; height:0;
+  border-left:18px solid transparent;
+  border-right:18px solid transparent;
+  border-top:30px solid #ff4d8e;
+  filter:drop-shadow(0 0 6px #ff4d8eaa);
+  z-index:10;
+}
+
+/* ✅ Overlay de chargement sur la roue */
+.wheel-loading{
+  position:absolute; inset:0;
+  display:flex; align-items:center; justify-content:center;
+  background:rgba(16,16,20,.7);
+  border-radius:50%;
+  font-size:1.2rem; color:#fff;
+  z-index:5;
+}
+
+.controls{
+  display:flex; gap:10px; align-items:center; flex-wrap:wrap; justify-content:center;
+  max-width:100%;
+}
+
+/* ✅ FIX : styles scopés aux boutons de la roue au lieu de global */
+.controls button{
+  padding:10px 24px; font-size:16px; border:0; border-radius:8px;
+  background:var(--accent); color:#fff; cursor:pointer; transition:background .2s;
+}
+.controls button:hover{ background:#ff3377; }
+.controls button:disabled{ opacity:.5; cursor:not-allowed; }
+
+.steam-select{
+  padding:10px 16px; font-size:16px;
+  background:var(--panel-3); color:var(--text);
+  border:1px solid var(--border); border-radius:8px;
+  cursor:pointer; outline:none;
+  transition:border-color .2s;
+  appearance:auto;
+}
+.steam-select:focus{ border-color:var(--accent); }
+.steam-select:disabled{ opacity:.5; cursor:not-allowed; }
+.wheel-result{
+  font-size:clamp(18px, 3vw, 24px); font-weight:600; text-align:center;
+  transition: color .4s;
+  max-width:100%; padding:0 1rem;
+  word-break:break-word;
+}
+/* Couleur persistante du gagnant après l'animation */
+.wheel-result--has-winner{
+  color: var(--win-color, #fff);
+}
+
+/* 🗑️ Bouton retirer le gagnant */
+.remove-winner-btn{
+  padding:10px 20px; font-size:14px; border:0; border-radius:8px;
+  background:rgba(255,77,142,.15); color:#ff4d8e;
+  cursor:pointer; transition:background .2s, transform .15s;
+  display:inline-flex; align-items:center; gap:8px;
+  max-width:90%; text-align:center; white-space:normal;
+  word-break:break-word;
+}
+.remove-winner-btn:hover{
+  background:rgba(255,77,142,.3); transform:scale(1.03);
+}
+
+/* 🎉 Animation de victoire */
+.wheel-result--win{
+  font-size:clamp(22px, 4vw, 32px);
+  color: var(--win-color, #ff4d8e);
+  text-shadow: 0 0 20px var(--win-color, #ff4d8e), 0 0 40px var(--win-color, #ff4d8e);
+  animation: winPulse .6s ease-in-out 3;
+  display:flex; align-items:center; justify-content:center; gap:12px;
+  flex-wrap:wrap;
+}
+.win-text{
+  animation: winScale .5s cubic-bezier(.17,.67,.29,1.4) forwards;
+}
+.win-icon{
+  font-size:28px;
+  animation: winBounce .6s ease-in-out infinite alternate;
+}
+@keyframes winPulse{
+  0%, 100%{ opacity:1; }
+  50%{ opacity:.6; }
+}
+@keyframes winScale{
+  0%{ transform:scale(0); opacity:0; }
+  100%{ transform:scale(1); opacity:1; }
+}
+@keyframes winBounce{
+  0%{ transform:translateY(0); }
+  100%{ transform:translateY(-8px); }
+}
+
+/* ========== Settings page ========== */
+.settings-page p { color: #aaa; }
+
+.settings-list{
+  display:flex; flex-direction:column; gap:8px;
+  margin-bottom:1.5rem;
+}
+.settings-row{
+  display:flex; align-items:center; gap:1rem;
+  padding:10px 14px;
+  background:var(--panel-3);
+  border-radius:8px;
+  border:1px solid var(--border);
+}
+.settings-label{
+  font-weight:600; min-width:100px;
+}
+.settings-id{
+  color:#888; font-size:.85rem;
+  flex:1; overflow:hidden; text-overflow:ellipsis;
+}
+.settings-remove{
+  background:none; border:0; color:#ff4d8e;
+  cursor:pointer; font-size:1rem; padding:6px 8px;
+  border-radius:6px; transition:background .2s;
+}
+.settings-remove:hover{ background:rgba(255,77,142,.15); }
+
+.settings-empty{
+  color:#666; font-style:italic; padding:1rem 0;
+}
+
+.settings-add{
+  display:flex; gap:10px; flex-wrap:wrap; align-items:center;
+}
+.settings-input{
+  padding:10px 14px; font-size:15px;
+  background:var(--panel-3); color:var(--text);
+  border:1px solid var(--border); border-radius:8px;
+  outline:none; flex:1; min-width:180px;
+  transition:border-color .2s;
+}
+.settings-input:focus{ border-color:var(--accent); }
+.settings-input::placeholder{ color:#555; }
+
+.settings-btn{
+  padding:10px 20px; font-size:15px; border:0; border-radius:8px;
+  background:var(--accent); color:#fff; cursor:pointer;
+  transition:background .2s;
+  display:flex; align-items:center; gap:6px;
+}
+.settings-btn:hover{ background:#ff3377; }
