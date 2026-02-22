@@ -14,21 +14,39 @@ const resultText = ref('—')
 const rotation = ref(0)
 const spinning = ref(false)
 const loading  = ref(false)
+const loadingPrices = ref(false)
 const showWin  = ref(false)
 const winColor = ref('')
 const winIndex = ref(-1)
 
-const rawItems = ref([])       // données brutes de l'API [{name, amount, type}]
-const pattern = ref([])        // noms répétés selon amount (filtré)
+const rawItems = ref([])
+const pattern = ref([])        // noms affichés répétés selon amount (filtré)
 const colors  = ref({})        // nom -> couleur
+const prices  = ref({})        // market_hash_name -> { price, currency }
 const currentSteamId = ref(props.steamIds?.[0] ?? '')
-const currentFilter  = ref('all')  // 'all' | 'case' | 'souvenir' | 'sticker'
+const currentFilter  = ref('all')
+
+const KEY_PRICE = 2.35  // Prix fixe clé CS2 en EUR (in-game)
 
 const size = 550
 let dpr = 1
 let rafId = 0
 
-// 🔊 Son de tick
+// --- Helpers pour accéder aux items ---
+// Clé unique d'un item (market_hash_name si dispo, sinon name)
+function itemKey(item) {
+  return item.market_hash_name || item.name
+}
+// Retrouver un item par sa clé
+function itemByKey(key) {
+  return rawItems.value.find(i => itemKey(i) === key)
+}
+// Nom d'affichage d'un item
+function displayName(item) {
+  return item?.name || item?.market_hash_name || '?'
+}
+
+// --- Son de tick ---
 let audioCtx = null
 let lastTickTime = 0
 const MIN_TICK_INTERVAL = 45
@@ -87,15 +105,15 @@ const palette = [
   '#FF4D8E', '#5BC0EB', '#E55934', '#B06AB3', '#00CED1'
 ]
 
-function generateColors(newNames){
-  newNames.forEach((name, i) => {
-    if (!colors.value[name]) {
-      colors.value[name] = palette[i % palette.length]
+function generateColors(newKeys){
+  newKeys.forEach((key, i) => {
+    if (!colors.value[key]) {
+      colors.value[key] = palette[i % palette.length]
     }
   })
 }
 
-// Catégories disponibles dynamiquement selon les données
+// --- Catégories disponibles dynamiquement ---
 const availableFilters = computed(() => {
   const types = new Set(rawItems.value.map(i => i.type))
   const filters = [{ value: 'all', label: 'Tout' }]
@@ -105,24 +123,48 @@ const availableFilters = computed(() => {
   return filters
 })
 
-// Reconstruire le pattern quand le filtre change
+// --- Item gagnant ---
+const winnerItem = computed(() => {
+  if (winIndex.value < 0) return null
+  const key = pattern.value[winIndex.value]
+  return itemByKey(key)
+})
+
+const winnerPrice = computed(() => {
+  if (!winnerItem.value) return null
+  const mhn = winnerItem.value.market_hash_name
+  if (!mhn) return null
+  return prices.value[mhn] ?? null
+})
+
+const winnerTotalCost = computed(() => {
+  if (!winnerItem.value || !winnerPrice.value?.price) return null
+  const casePrice = winnerPrice.value.price
+  const needsKey = winnerItem.value.needs_key === true
+  if (needsKey) {
+    return { casePrice, keyPrice: KEY_PRICE, total: Math.round((casePrice + KEY_PRICE) * 100) / 100 }
+  }
+  return { casePrice, keyPrice: 0, total: casePrice }
+})
+
+// --- Reconstruire le pattern quand le filtre change ---
 function applyFilter() {
   const filtered = currentFilter.value === 'all'
     ? rawItems.value
     : rawItems.value.filter(item => item.type === currentFilter.value)
 
   pattern.value = []
-  const newNames = []
+  const newKeys = []
   filtered.forEach(item => {
-    if (!colors.value[item.name]) newNames.push(item.name)
+    const key = itemKey(item)
+    if (!colors.value[key]) newKeys.push(key)
     for (let i = 0; i < (item.amount || 0); i++) {
-      pattern.value.push(item.name)
+      pattern.value.push(key)
     }
   })
-  generateColors(newNames)
+  generateColors(newKeys)
   shufflePattern()
 
-  // Reset état du résultat
   winIndex.value = -1
   resultText.value = '—'
   winColor.value = ''
@@ -151,14 +193,16 @@ function drawWheel(angle = rotation.value){
   if (!N) return
 
   for (let i = 0; i < N; i++){
-    const val = pattern.value[i]
+    const key = pattern.value[i]
+    const item = itemByKey(key)
+    const name = displayName(item)
     const a0 = angle + i * ARC
     const a1 = a0 + ARC
     ctx.beginPath()
     ctx.moveTo(r, r)
     ctx.arc(r, r, r - 14, a0, a1)
     ctx.closePath()
-    ctx.fillStyle = colors.value[val] || '#555'
+    ctx.fillStyle = colors.value[key] || '#555'
     ctx.fill()
     ctx.strokeStyle = '#000'
     ctx.lineWidth = 1
@@ -170,7 +214,15 @@ function drawWheel(angle = rotation.value){
     ctx.fillStyle = '#fff'
     ctx.font = 'bold 14px Arial'
     ctx.textAlign = 'right'
-    ctx.fillText(String(val).slice(0, 18), r - 24, 5)
+
+    // Afficher le nom + prix si disponible
+    const mhn = item?.market_hash_name
+    const p = mhn ? prices.value[mhn] : null
+    let label = String(name).slice(0, 18)
+    if (p?.price != null) {
+      label = `${label}  ${p.price}€`
+    }
+    ctx.fillText(label, r - 24, 5)
     ctx.restore()
   }
 }
@@ -190,10 +242,11 @@ function showResult(){
   const angleUnderPointer =
     (2 * Math.PI - ((rotation.value + Math.PI/2) % (2 * Math.PI))) % (2 * Math.PI)
   const index = Math.floor(angleUnderPointer / ARC) % N
-  const winner = pattern.value[index]
-  resultText.value = winner
+  const key = pattern.value[index]
+  const item = itemByKey(key)
+  resultText.value = displayName(item)
   winIndex.value = index
-  winColor.value = colors.value[winner] || '#ff4d8e'
+  winColor.value = colors.value[key] || '#ff4d8e'
   playWinSound()
   showWin.value = true
   setTimeout(() => { showWin.value = false }, 2500)
@@ -261,6 +314,27 @@ function spin(){
   rafId = requestAnimationFrame(animate)
 }
 
+// --- Fetch des prix depuis le Steam Market ---
+async function fetchPrices() {
+  // On ne fetch que si on a des market_hash_name
+  const withHash = rawItems.value.filter(i => i.market_hash_name)
+  if (withHash.length === 0) return
+  loadingPrices.value = true
+  try {
+    const names = withHash.map(i => i.market_hash_name).join(',')
+    const r = await fetch(`/api/get_prices.php?names=${encodeURIComponent(names)}`)
+    const data = await r.json()
+    if (data && typeof data === 'object' && !data.error) {
+      prices.value = data
+      drawWheel()
+    }
+  } catch (e) {
+    console.warn('fetchPrices échoué:', e)
+  } finally {
+    loadingPrices.value = false
+  }
+}
+
 async function fetchInventory(){
   loading.value = true
   try {
@@ -270,6 +344,8 @@ async function fetchInventory(){
     if (!Array.isArray(data)) throw new Error('format inattendu')
     rawItems.value = data
     applyFilter()
+    // Fetch les prix en arrière-plan
+    fetchPrices()
   } catch (e) {
     console.warn('fetchInventory échoué:', e)
     try {
@@ -293,6 +369,11 @@ function labelFor(id){
   const idx = props.steamIds.indexOf(id)
   if (idx >= 0 && props.labels[idx]) return props.labels[idx]
   return idx >= 0 ? `Inventaire ${idx + 1}` : id
+}
+
+function formatPrice(val) {
+  if (val == null) return '—'
+  return val.toFixed(2) + '€'
 }
 
 function onResize(){
@@ -357,6 +438,12 @@ watch(currentFilter, () => applyFilter())
       </select>
     </div>
 
+    <!-- Badge de chargement prix -->
+    <div v-if="loadingPrices" class="price-loading">
+      <i class="fas fa-coins"></i> Chargement des prix…
+    </div>
+
+    <!-- Résultat -->
     <div
       class="wheel-result"
       :class="{ 'wheel-result--win': showWin, 'wheel-result--has-winner': winColor && !showWin }"
@@ -370,6 +457,45 @@ watch(currentFilter, () => applyFilter())
       <template v-else>
         Résultat : {{ resultText }}
       </template>
+    </div>
+
+    <!-- Carte de prix du gagnant -->
+    <div v-if="winnerItem && !showWin" class="winner-price-card">
+      <div class="winner-price-card__header">
+        <img
+          v-if="winnerItem.image"
+          :src="winnerItem.image"
+          :alt="winnerItem.name"
+          class="winner-price-card__img"
+        />
+        <div class="winner-price-card__info">
+          <span class="winner-price-card__name">{{ winnerItem.name }}</span>
+          <span class="winner-price-card__type">
+            {{ winnerItem.type === 'case' ? '📦 Caisse' : winnerItem.type === 'souvenir' ? '🎁 Souvenir' : '🏷️ Sticker' }}
+            <span v-if="winnerItem.needs_key" class="needs-key-badge">🔑 Clé requise</span>
+          </span>
+        </div>
+      </div>
+
+      <div v-if="winnerTotalCost" class="winner-price-card__prices">
+        <div class="price-row">
+          <span class="price-label">
+            {{ winnerItem.type === 'case' ? 'Caisse' : winnerItem.type === 'souvenir' ? 'Package' : 'Capsule' }}
+          </span>
+          <span class="price-value">{{ formatPrice(winnerTotalCost.casePrice) }}</span>
+        </div>
+        <div v-if="winnerItem.needs_key" class="price-row price-row--key">
+          <span class="price-label">🔑 Clé</span>
+          <span class="price-value">{{ formatPrice(winnerTotalCost.keyPrice) }}</span>
+        </div>
+        <div v-if="winnerItem.needs_key" class="price-row price-row--total">
+          <span class="price-label">Total</span>
+          <span class="price-value price-value--total">{{ formatPrice(winnerTotalCost.total) }}</span>
+        </div>
+      </div>
+      <div v-else-if="!loadingPrices" class="winner-price-card__no-price">
+        Prix indisponible
+      </div>
     </div>
 
     <button

@@ -1,6 +1,8 @@
 <?php
 // get_inventory.php
-// Répond un JSON: [ { "name": "...", "amount": 3, "type": "case"|"souvenir"|"sticker" }, ... ]
+// Répond un JSON: [ { "name": "...", "market_hash_name": "...", "amount": 3,
+//                     "type": "case"|"souvenir"|"sticker", "needs_key": true/false,
+//                     "image": "https://..." }, ... ]
 
 header('Content-Type: application/json; charset=utf-8');
 
@@ -51,25 +53,28 @@ if (!empty($data['descriptions']) && is_array($data['descriptions'])) {
     }
 }
 
-function categorize(string $name): ?string {
-    $lower = mb_strtolower($name);
+/**
+ * Catégorise un item CS2 par son market_hash_name (anglais).
+ */
+function categorize(string $marketName): ?string {
+    $lower = mb_strtolower($marketName);
 
-    // Capsules de stickers / autographes (contient "Capsule")
+    // Capsules de stickers / autographes
     if (str_contains($lower, 'capsule')) {
         return 'sticker';
     }
 
-    // Souvenir Packages uniquement (pas les skins souvenir)
+    // Souvenir Packages uniquement
     if (str_contains($lower, 'souvenir package')) {
         return 'souvenir';
     }
 
-    // Caisses classiques uniquement ("Case" ou "Caisse")
-    if (preg_match('/\b(case|caisse)\b/', $lower)) {
+    // Caisses classiques ("Case")
+    if (preg_match('/\b(case)\b/', $lower)) {
         return 'case';
     }
 
-    return null; // graffitis, charms, pins, skins, stickers individuels → ignorés
+    return null;
 }
 
 $counts = [];
@@ -83,28 +88,42 @@ if (!empty($data['assets']) && is_array($data['assets'])) {
         $desc = $descIndex[$ck . '_' . $ik] ?? null;
         if (!$desc) continue;
 
-        $name = $desc['market_hash_name'] ?? ($desc['name'] ?? null);
-        if (!$name) continue;
+        $marketName = $desc['market_hash_name'] ?? null;
+        $displayName = $desc['name'] ?? $marketName;
+        if (!$marketName) continue;
 
-        $type = categorize($name);
+        $type = categorize($marketName);
         if ($type === null) continue;
 
         $amt = isset($a['amount']) ? (int)$a['amount'] : 1;
         $amt = max(1, $amt);
 
-        if (!isset($counts[$name])) {
-            $counts[$name] = ['amount' => 0, 'type' => $type];
+        $icon = $desc['icon_url'] ?? null;
+        $imageUrl = $icon ? "https://community.akamai.steamstatic.com/economy/image/$icon" : null;
+
+        if (!isset($counts[$marketName])) {
+            $counts[$marketName] = [
+                'display_name'     => $displayName,
+                'market_hash_name' => $marketName,
+                'amount'           => 0,
+                'type'             => $type,
+                'needs_key'        => ($type === 'case'),
+                'image'            => $imageUrl,
+            ];
         }
-        $counts[$name]['amount'] += $amt;
+        $counts[$marketName]['amount'] += $amt;
     }
 }
 
 $out = [];
-foreach ($counts as $n => $info) {
+foreach ($counts as $info) {
     $out[] = [
-        'name'   => $n,
-        'amount' => $info['amount'],
-        'type'   => $info['type'],
+        'name'             => $info['display_name'],
+        'market_hash_name' => $info['market_hash_name'],
+        'amount'           => $info['amount'],
+        'type'             => $info['type'],
+        'needs_key'        => $info['needs_key'],
+        'image'            => $info['image'],
     ];
 }
 
