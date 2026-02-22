@@ -1,9 +1,12 @@
 <script setup>
-import { computed } from 'vue'
+import { computed, onMounted } from 'vue'
 import Wheel from '@/components/Wheel.vue'
-import { wheelStore } from '@/stores/wheel.js'
+import { wheelStore, loadAccounts } from '@/stores/wheel.js'
 
-// Dérivés réactifs du store → si Settings modifie le store, Tool se met à jour
+onMounted(() => {
+  if (!wheelStore.loaded) loadAccounts()
+})
+
 const steamIds = computed(() => wheelStore.inventories.map(inv => inv.steamId))
 const labels   = computed(() => wheelStore.inventories.map(inv => inv.label))
 </script>

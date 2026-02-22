@@ -1,23 +1,32 @@
 <script setup>
-import { ref } from 'vue'
-import { wheelStore } from '@/stores/wheel.js'
+import { ref, onMounted } from 'vue'
+import { wheelStore, loadAccounts, addAccount, removeAccount } from '@/stores/wheel.js'
 
 const newLabel   = ref('')
 const newSteamId = ref('')
+const saving     = ref(false)
 
-function addInventory() {
+onMounted(() => {
+  if (!wheelStore.loaded) loadAccounts()
+})
+
+async function handleAdd() {
   const id    = newSteamId.value.trim()
   const label = newLabel.value.trim()
   if (!id || !label) return
-  // Évite les doublons
-  if (wheelStore.inventories.some(inv => inv.steamId === id)) return
-  wheelStore.inventories.push({ steamId: id, label })
-  newSteamId.value = ''
-  newLabel.value   = ''
+  saving.value = true
+  const ok = await addAccount(id, label)
+  saving.value = false
+  if (ok) {
+    newSteamId.value = ''
+    newLabel.value   = ''
+  }
 }
 
-function removeInventory(index) {
-  wheelStore.inventories.splice(index, 1)
+async function handleRemove(index) {
+  saving.value = true
+  await removeAccount(index)
+  saving.value = false
 }
 </script>
 
@@ -35,7 +44,12 @@ function removeInventory(index) {
       >
         <span class="settings-label">{{ inv.label }}</span>
         <span class="settings-id">{{ inv.steamId }}</span>
-        <button class="settings-remove" @click="removeInventory(i)" title="Supprimer">
+        <button
+          class="settings-remove"
+          @click="handleRemove(i)"
+          :disabled="saving"
+          title="Supprimer"
+        >
           <i class="fas fa-trash-alt"></i>
         </button>
       </div>
@@ -51,15 +65,15 @@ function removeInventory(index) {
         v-model="newLabel"
         class="settings-input"
         placeholder="Label (ex: Dublatic)"
-        @keyup.enter="addInventory"
+        @keyup.enter="handleAdd"
       />
       <input
         v-model="newSteamId"
         class="settings-input"
         placeholder="Steam ID (ex: 76561199055485964)"
-        @keyup.enter="addInventory"
+        @keyup.enter="handleAdd"
       />
-      <button class="settings-btn" @click="addInventory">
+      <button class="settings-btn" @click="handleAdd" :disabled="saving">
         <i class="fas fa-plus"></i> Ajouter
       </button>
     </div>
